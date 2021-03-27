@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>WorldTravel</title>
+        <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
+        <script src="https://cdn.jsdelivr.net/gh/paul-caron/MatrixMath/matrix.js" ></script>
+        <style>
+body {
+    text-align:center;
+}
+
+canvas{
+    width:100%;
+}
+
+#track{
+    width:60%;
+    display:inline-block;
+    text-align:center;
+}
+
+img{
+    display:none;
+}
+
+button{
+    font-size: 5vw;
+    padding: 5vw;
+}
+        </style>
+    </head>
+    <body>
+        <canvas id = "track" ></canvas>
+        <canvas id="game"></canvas>
+        <button onclick="viewerAngle-=0.05" style="float:left;">&lt;</button>
+        <button onclick="viewerAngle+=0.05;" style="float:right;">&gt;</button>
+        
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/Mercator_projection_SW.jpg/707px-Mercator_projection_SW.jpg" crossorigin="*">
+        <script>
+let canvas, ctx
+const w = 120
+const h = 100
+let canvasTrack, ctxTrack, trackData
+const trackWidth = 707
+const trackHeight = 600
+let viewerAngle = 0
+let viewer
+
+const D = 35 //distance from viewer to projection screen
+const vH = 20 //viewer height from ground
+
+const forward = ()=>{
+    viewer.values[0]+= Math.cos(viewerAngle+Math.PI/2)*2
+    viewer.values[1]-= Math.sin(viewerAngle-Math.PI/2)*2
+}
+
+const game = (t)=>{
+    const {mult,kmult,add} = Matrix
+    const {cos, sin, atan2, tan, PI, abs} = Math
+    const a = viewerAngle //angle of map rotation from viewer as pivot
+    const rotation = new Matrix(2,2)
+    rotation.setValues([cos(a),-sin(a),
+                        sin(a),cos(a)])
+    for(let y=0;y<h;++y){
+    for(let x=0;x<w;++x){
+        const projectionAngleZ = atan2(abs(y-h/5),D)
+        let imageZ = vH/tan(projectionAngleZ)
+        let imageX = (w/2-x)*(imageZ)/D+viewer.values[0]
+        imageZ += viewer.values[1]
+        let pixel = new Matrix(2,1)
+        pixel.setValues([imageX,imageZ])
+        
+        let p =
+            add(
+                mult(
+                    rotation,
+                    add(
+                        pixel,
+                        kmult(viewer,-1)
+                    )
+                ),
+                viewer
+            )
+        
+        imageX = p.values[0]
+        imageZ = p.values[1]
+        
+        imageX = (imageX + trackWidth )%trackWidth
+        imageZ = (imageZ + trackHeight)%trackHeight
+        if(y>h/5){
+        const red = trackData.data[
+               trackWidth*4*parseInt(imageZ) +
+               parseInt(imageX)*4]
+        const green = trackData.data[
+               trackWidth*4*parseInt(imageZ) + 
+               parseInt(imageX)*4+1]
+        const blue = trackData.data[
+               trackWidth*4*parseInt(imageZ) + 
+               parseInt(imageX)*4+2]
+        ctx.fillStyle = `rgb(${red},${green},${blue})`
+        ctx.fillRect(x,y,1,1)
+        }else{
+            ctx.fillStyle = `hsl(${((x-w/2)/w+viewerAngle)*180/PI},50%,50%)`
+            ctx.fillRect(x,y,1,1)
+        }
+        
+    }
+    }
+    
+    ctxTrack.putImageData(trackData,0,0)
+    ctxTrack.fillStyle = "red"
+    ctxTrack.beginPath()
+    ctxTrack.arc(viewer.values[0],viewer.values[1],10,0,PI*2)
+    ctxTrack.fill()
+    forward()
+    viewer.values[0] = (viewer.values[0]+ trackWidth)%trackWidth
+    viewer.values[1] = (viewer.values[1]+ trackHeight)%trackHeight
+    
+    requestAnimationFrame(game)
+}
+
+const gameSetup = ()=>{
+    canvas = document
+           . querySelector("#game")
+    canvas.width = w
+    canvas.height = h
+    ctx = canvas.getContext("2d")
+    viewer=new Matrix(2,1)
+    viewer.setValues([350,300])
+}
+
+const builTrack = ()=>{
+    canvasTrack = document
+                . querySelector("#track")
+    canvasTrack.width = trackWidth
+    canvasTrack.height = trackHeight
+    ctxTrack = canvasTrack.getContext("2d")
+    ctxTrack.drawImage(document.querySelector("img"),0,0)
+    trackData = ctxTrack.getImageData(0,0,trackWidth,trackHeight)
+}
+
+const start = ()=>{
+    builTrack()
+    gameSetup()
+    requestAnimationFrame(game)
+}
+
+onload = start
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        </script>
+    </body>
+</html>
+
+
+
+
+
+
